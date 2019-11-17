@@ -1,0 +1,370 @@
+Rabbit MQ is designed to implement AMQP(Advanced Messaging and Queueing Protocol)
+Rabbit MQ also supports below protocols but AMQP is most popular.
+1. STOMP - Messaging protocol (Text based)
+2. MQTT - Lightweight Protocol (Binary format for IOT applications)
+3. HTTP - For Management Plugins
+
+AMQP 0.9.1 is the Recommended Version for Rabbit MQ.
+
+AMQP provides below features.
+1. Message Orientation.
+2. Queuing
+3. Routing 
+4. Reliability
+5. Security.
+
+AMQP mandates the behaviour of message producers and message consumers for seamless transportation of messages between applications built by different vendors with different programming languages.
+
+AMQP influences the format of data that is sent across network as a stream of bytes, so any application that follow the same format can send and receive messages from a message broker with AMQP implementation.
+
+Message Flows in RabbitMQ
+
+Entities in Message Flows.
+1. Publisher
+2. Exchange
+3. Queues
+4. Bindings
+5. Consumer
+
+Publisher will send the message to Exchange and exchange will send the message to appropriate Queues.
+
+Routing of message to appropriate Queues is determined by the rules which we call as Bindings.
+
+Once messages are delivered to Queue, consumer can fetch the message from Queue when it is required.
+
+When sending message Publisher can pass attributes along with the message. 
+Some of the attributes are used by Rabbit MQ
+and rest are used by the consumer application.
+
+There are scenarios where messages are not delivered to consumer applications due to network issues or application failures. In this case we will lose a message which is not acceptable.
+
+To address this issue AMQP model has delivery Acknowledgement mechanism in place. So a message will not be completely removed from the queue unless we send a positive acknowledgement from consumer.
+
+In case of Negative Acknowledgement message could be resent to consumer or it can be dropped. These settings can be configured by publisher while sending the message.
+
+Exchange Types:
+In Rabbit MQ Publisher send message to exchange and exchange will route to the corresponding queue based on the bindings.
+
+Rabbit MQ Routing algorithm is influenced by by 2 entities one is exchange type and other is binding.
+
+
+Exchange Attributes:
+1. Exchange Type
+2. Exchange Name
+3. Exchange Durability - determines whether a message needs to be survived during broker restart.
+3. Auto delete - says whether exchange has to be deleted after the unbound of last queue associated with it.
+
+
+Message Attributes:
+1. Routing Key
+2. Header
+Both these attributes are used by exchange to route message to appropriate queues
+
+
+Exchange Types
+
+1. Default Exchange
+Doesn’t have a name pre- declared by broker
+creates automatic binding with every queue.
+Binding key will be the Queue name.
+Used for simple applications.
+
+2. Direct Exchange
+Direct Exchange will have a name and queues are not automatically bounded.
+Binding needs to be made explicitly using a binding key.
+In direct exchange we can route same message to more than one queue because we are binding exchange and queue explicitly, and this is not possible in default exchange as binding key is same as queue name.
+
+3. Fan out Exchange(Broadcast)
+In this exchange Binding Key will not have any effect because fan out exchange route messages to all queues bound to it.
+ 
+This type of exchange is achieved by using a direct exchange and fan out exchange
+when a message needs to be broadcasted then publisher needs to send a key that fan out exchange is bounded to direct exchange.
+
+4. Topic Exchange
+It is similar to direct exchange where a message is routed to queue based on the binding key.
+In this Routing key is compared with binding pattern to route messages instead of binding key.
+
+Binding key - exact string that matches routing key
+Binding Pattern - Text Pattern that matches one or more routing keys.
+
+This helps to bind queues effectively by reducing the number of bindings.
+
+Examples:
+Binding key 
+
+school.*.physics - school.students.physics
+                 - school.teachers.physics
+
+school.#.maths   - school.students.maths
+                 - school.maths
+                 - school.teachers.maths
+
+# means 0 or more occurrences
+* means 1 or more occurrences
+
+school.students.# - school.students.maths
+                  - school.students.physics
+
+school.teachers.# - school.teachers.maths
+                  - school.teachers.physics
+
+5. Header Exchange
+Message Header is used to route messages.
+Message Header is a set of key of value pairs
+In these headers there is a one predefined rabbit mq header 
+x-match which determines match has to be for all attributes or a any of the attribute in the header. 
+
+If x-match=all then all attributes should match
+If x-match=any then any one attribute should match
+
+
+Installation in Mac:
+brew update
+brew install rabbitmq
+
+Rabbit MQ Installation Directory
+/usr/local/opt/rabbitmq
+
+Rabbit MQ Broker start
+sbin/rabbitmq-server start
+
+Rabbit MQ Broker stop
+sbin/rabbitmqctl stop
+
+Rabbit MQ Admin console
+http://localhost:15672
+guest/guest
+
+Log Directory:
+/usr/local/var/log/rabbitmq
+
+Creating users:
+rabbitmqctl add_user snow snows
+
+
+Assigning Roles:
+rabbitmqctl set_user_tags snow administrator
+
+Setting Permissions:
+rabbitmqctl set_permissions -p / snow “.*” “.*” “.*”
+
+Here -p indicates Virtual Host
+In Rabbit we can create multiple Virtual Hosts
+Virtual host is a logical separation of Rabbit MQ Resources like queues and exchange so that any queues created will be in that virtual host.
+
+“.*” “.*” “.*” 
+This is to set read, write and configure permissions
+Here we have to mention list of resources, but we can use wildcards too.
+
+
+Rabbit MQ Configuration file:
+it will be under /etc/rabbitmq.config
+
+Every Line should end with period (.)
+This convention is from Erlang
+
+** Every Configuration data is tuple.
+{“config name” “config value”}
+
+If we have more that one tuple then it has to be in the list
+[{“config name1” “config value1”}, {“config name2” “config value2”}]
+
+
+RabbitMQ Clustering:
+In RabbitMQ Cluster we can maintain queues on different nodes so that any consumer is requesting for a message then it will retrieve message from that node only there by reducing load on the system.
+
+If we don’t have a cluster then each producer and consumer should know the machine name or node where queue resides.
+
+This problem we can overcome by using RabbitMQ Cluster
+
+RabbitMQ Cluster is a collection of RabbitMQ Applications running on each of the nodes in the cluster, and the resources like users, virtual hosts, exchanges, queues, Policies, bindings and runtime parameters are shared across these nodes.
+
+We are achieving this visibility by replicating all data and states required for the operation of RabbitMQ Broker.
+*** When it comes to message queues IT IS NOT REPLICATED, but message queues are made transparent across nodes in the cluster.
+
+This removes the limitation of producer and consumer should know about server and queue mapping to publish and consume messages.
+
+Basically you can publish to any server in the cluster, internally Rabbit MQ will route the message to appropriate server where the queue resides.
+
+Similarly you can consume message from any server in a cluster and internally RabbitMQ will look for the server where queue resides and fetches messages from that server.
+
+** But if Node where Queue resides goes down or removed from the cluster then the queue will not be accessible, To avoid this we need to use Mirroring for High Availability.
+
+** Another limitation that cluster has is it is not recommended to use rabbitmq clustering across WAN, so we can form a cluster only with nodes which are available in internal network.
+
+
+Disc and RAM Nodes:
+Nodes are classified based on the memory to which RabbitMQ application stores its states.
+If it stores in RAM Memory then the node is a RAM node
+If it stores in Disc Memory then the node is a Disc node
+
+While we join a node to the cluster we can mention whether that node is a RAM node or Disc Node.
+
+In the RAM node if the data exceeds RAM memory then it will store next files in Disc memory.
+
+RAM memory is used to increase the performance but the data can also be lost very easily because it stores data in RAM and will be erased during server restart.
+
+It is recommended to have balanced RAM and Disc Nodes in a cluster.
+In a cluster if we have 5 nodes then 3 nodes can Disc nodes and 2 nodes can be RAM nodes.
+
+If you don’t want to take risk of loosing data then you can go for Disc node
+If you care about performance then you can go for RAM node.
+
+
+AWS RHEL RabbitMQ Installation:
+
+Language Package Support:
+vi ~/.bashrc
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+export LC_COLLATE=C
+export LC_CTYPE=en_US.UTF-8
+
+sudo su
+yum update 
+
+1. Install EPEL(Extended Packages for Enterprise Linux)
+yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+2. Install Erlang
+yum install https://github.com/rabbitmq/erlang-rpm/releases/download/v22.1.3/erlang-22.1.3-1.el6.x86_64.rpm
+
+3. Install RabbitMQ Server
+yum install https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.8.0/rabbitmq-server-3.8.0-1.el7.noarch.rpm
+
+4. Register rabbitmq as a service (optional)
+chkconfig rabbitmq-server on
+
+5. Enabling Management Console
+/sbin/rabbitmq-plugins enable rabbitmq_management
+
+6. Adding Loop Back users for Management Console Login
+cd /etc/rabbitmq
+vi rabbitmq.conf
+loopback_users = none
+
+8. start/stop/restart RabbitMQ As a Service
+/sbin/service rabbitmq-server start
+/sbin/service rabbitmq-server stop
+/sbin/service rabbitmq-server restart
+
+
+To change the Nodename we have to define below Environment Variable in .bashrc file
+RABBITMQ_NODENAME
+
+eg:
+export RABBITMQ_NODENAME=rabbit@masternode
+
+whenever we change the node name then the node name will not resolve, for this we need to add ip and name to host entry file.
+
+vi /etc/hosts
+Add
+ip node_name
+
+eg:
+15.206.86.66 masternode
+
+Now Reboot your AWS machine by executing below command
+reboot
+
+Erlang Cookie will be in below location.
+/var/lib/rabbitmq/.erlang.cookie
+
+eg:
+EQTBZVOTSBCJMYEETGLG
+
+Start RabbitMQ server
+nohup rabbitmq-server start &
+
+Slave Node Configuration:
+** You have to add this host entry in slave nodes as well.
+
+vi /etc/hosts
+Add
+ip node_name
+
+eg:
+15.206.86.66 masternode
+
+Restart the slave machine
+reboot
+
+Start RabbitMQ server
+nohup rabbitmq-server start &
+
+Now we need to copy Erlang Cookie from Master Node to the slave nodes then only these machines can communicate in the cluster.
+
+Erlang Cookie will be in below location.
+/var/lib/rabbitmq/.erlang.cookie
+
+Before joining cluster we need to bring rabbit mq node down but Erlang should be up, for this execute below.
+rabbitmqctl stop_app
+
+Command to join cluster:
+rabbitmqctl join_cluster rabbit@masternode
+
+
+To join a node as a ram node
+rabbitmqctl join_cluster rabbit@masternode —ram
+
+Now start the slave node
+nohup rabbitmq-server start &
+
+
+To check Rabbit MQ Status
+rabbitmqctl status
+
+To check Cluster Status
+rabbitmqctl cluster_status
+
+To change Cluster Name 
+we can do in RabbitMQ Console
+or
+we can execute below command
+rabbitmqctl set_cluster_name rabbit@alphacluster
+
+
+
+RabbitMQ Security Group:
+
+Custom TCP Rule TCP 5672
+Custom TCP Rule TCP 15672
+Custom TCP Rule TCP 4369
+Custom TCP Rule TCP 25672
+Custom TCP Rule TCP 35197
+Custom TCP Rule TCP 55672
+SSH TCP 22
+
+
+Communication and Message Patterns in RabbitMQ
+
+Default Exchange:
+While publishing a message if we pass the exchange as empty string then message will be published to default exchange, and RabbitMQ will automatically create a binding between default exchange and the queue using a routing key which is same as queue name.
+
+Fanout Exchange:
+In Fanout Exchange we don’t need to pass any routing key as it is ignored.
+so routing key in this case will be “”
+
+ // Here Queue Declare Empty arguments methods will create a Non Durable, exclusive, auto delete queue.
+String queueName = channel.queueDeclare().getQueue();
+
+// Binding Exchange with the Queue
+channel.queueBind(queueName, "scores.feed.fanout.exchange", "");
+
+
+
+RabbitMQ Federations:
+Federation helps in transmitting messages from one broker to another broker and this helps us to have RabbitMQ brokers distributed on different machines.
+
+Clustering vs Federations
+Not WAN Friendly	
+WAN Friendly and it is even designed to tolerate intermittent connectivity
+
+We cannot apply clustering to a specific resource, once we bring a node under cluster then clustering will apply to all resources under it.
+In Federation we can federate a particular queue or exchange based on the requirement.
+
+In Clustering every node should run same Erlang and RabbitMQ Version whereas Federation can run with different versions.
+
+There are 2 types of Federations in RabbitMQ
+1. Exchange Federation
+2. Queue Federation
